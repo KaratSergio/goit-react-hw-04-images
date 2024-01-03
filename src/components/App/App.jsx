@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,31 +13,24 @@ import { AppContent } from './App.module';
 
 const apiService = new ImageApiService();
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    galleryItems: [],
-    galleryPage: 1,
-    loading: false,
-    isButtonShow: false,
-    error: false,
-    selectedImage: null,
-  };
+export const App = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [galleryPage, setGalleryPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [isButtonShow, setIsButtonShow] = useState(false);
+  const [error, setError] = useState(false);
+  const [setSelectedImage] = useState(null);
 
-  toggleModal = imageUrl => {
-    this.setState(prevState => ({
-      selectedImage: prevState.selectedImage === imageUrl ? null : imageUrl,
-    }));
-  };
+  useEffect(() => {
+    const fetchGalleryItems = async (query, page) => {
+      setLoading(true);
+      setError(false);
 
-  fetchGalleryItems = (query, page) => {
-    this.setState({ loading: true, error: false });
+      apiService.setSearchTerm(query);
 
-    apiService.setSearchTerm(query);
-
-    apiService
-      .getImages(page)
-      .then(data => {
+      try {
+        const data = await apiService.getImages(page);
         const newData = data.map(
           ({ id, tags, webformatURL, largeImageURL }) => ({
             id,
@@ -52,25 +45,26 @@ export class App extends Component {
           key: uuidv4(),
         }));
 
-        this.setState(prevState => ({
-          galleryItems: [...prevState.galleryItems, ...currentData],
-        }));
+        setGalleryItems(prevGalleryItems => [
+          ...prevGalleryItems,
+          ...currentData,
+        ]);
 
         if (!data.length) {
-          this.setState({ loading: false, error: true, isButtonShow: false });
+          setLoading(false);
+          setError(true);
+          setIsButtonShow(false);
           toast.warn('Sorry, there are no images. Please try again.');
         } else {
-          const currentPage = this.state.galleryPage;
+          const currentPage = galleryPage;
           const totalPages = Math.ceil(
             apiService.totalResults / apiService.perPage
           );
 
           if (currentPage >= totalPages) {
-            this.setState({
-              loading: false,
-              isButtonShow: false,
-              error: false,
-            });
+            setLoading(false);
+            setIsButtonShow(false);
+            setError(false);
           } else {
             if (page === 1) {
               toast.success(
@@ -78,55 +72,58 @@ export class App extends Component {
               );
             }
 
-            this.setState({ loading: false, isButtonShow: true, error: false });
+            setLoading(false);
+            setIsButtonShow(true);
+            setError(false);
           }
         }
-      })
-      .catch(error => {
-        this.setState({ loading: false, error: true });
+      } catch (error) {
+        setLoading(false);
+        setError(true);
         toast.error('Oops! Something went wrong. Please try again later.');
-      });
-  };
+      }
+    };
 
-  handleFormSubmit = searchQuery => {
-    this.setState({
-      searchQuery,
-      galleryPage: 1,
-      galleryItems: [],
-      isButtonShow: false,
-      error: false,
-    });
-    this.fetchGalleryItems(searchQuery, 1);
-  };
+    if (searchQuery) {
+      fetchGalleryItems(searchQuery, galleryPage);
+    }
+  }, [searchQuery, galleryPage]);
 
-  onLoadMore = () => {
-    this.setState(prevState => ({
-      galleryPage: prevState.galleryPage + 1,
-    }));
-    this.fetchGalleryItems(this.state.searchQuery, this.state.galleryPage + 1);
-  };
-
-  render() {
-    const { galleryItems, loading, isButtonShow, error } = this.state;
-
-    return (
-      <AppContent>
-        <Searchbar onSubmit={this.handleFormSubmit} />
-        {error && <div>Something went wrong!</div>}
-        {!error && (
-          <ImageGallery
-            galleryItems={galleryItems}
-            keyExtractor={item => item.key}
-            onImageClick={imageUrl => this.toggleModal(imageUrl)}
-          />
-        )}
-        {loading && <Loader />}
-        {isButtonShow && <Button onClick={this.onLoadMore} />}
-
-        <ToastContainer autoClose={3000} theme="colored" />
-      </AppContent>
+  const toggleModal = imageUrl => {
+    setSelectedImage(prevSelectedImage =>
+      prevSelectedImage === imageUrl ? null : imageUrl
     );
-  }
-}
+  };
+
+  const handleFormSubmit = newSearchQuery => {
+    setSearchQuery(newSearchQuery);
+    setGalleryPage(1);
+    setGalleryItems([]);
+    setIsButtonShow(false);
+    setError(false);
+  };
+
+  const onLoadMore = () => {
+    setGalleryPage(prevGalleryPage => prevGalleryPage + 1);
+  };
+
+  return (
+    <AppContent>
+      <Searchbar onSubmit={handleFormSubmit} />
+      {error && <div>Something went wrong!</div>}
+      {!error && (
+        <ImageGallery
+          galleryItems={galleryItems}
+          keyExtractor={item => item.key}
+          onImageClick={imageUrl => toggleModal(imageUrl)}
+        />
+      )}
+      {loading && <Loader />}
+      {isButtonShow && <Button onClick={onLoadMore} />}
+
+      <ToastContainer autoClose={3000} theme="colored" />
+    </AppContent>
+  );
+};
 
 export default App;

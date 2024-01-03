@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
-import { SearchBox, SearchForm, SearchBtn, SearchInput } from './Searchbar.module';
+import { useState } from 'react';
+import {
+  SearchBox,
+  SearchForm,
+  SearchBtn,
+  SearchInput,
+} from './Searchbar.module';
 
 const Searchbar = ({ onSubmit }) => {
   const [querySearch, setQuerySearch] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = e => {
     e.preventDefault();
     onSubmit(querySearch.trim());
   };
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     setQuerySearch(e.target.value);
   };
 
@@ -33,5 +38,3 @@ const Searchbar = ({ onSubmit }) => {
 };
 
 export default Searchbar;
-
-
